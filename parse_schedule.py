@@ -14,10 +14,12 @@ def parse_schedule(file_path):
     # Extract table data
     rows = []
     total_shifts = 0
-    shift_destinations = {'BC': 0, 'VL': 0, 'AG': 0, 'SV': 0, 'AL': 0}
+    shift_destinations = {'BC': 0, 'VL': 0, 'AG': 0, 'SV': 0, 'AL': 0, 'MA': 0}
     total_rest_days = 0
     rest_day_types = {'D': 0, 'I': 0, 'V': 0}
     total_overnight_shifts = 0
+    overnight_shifts_by_dest = {'BC': 0, 'VL': 0, 'AG': 0, 'SV': 0, 'AL': 0}
+    overnight_shifts_details = []  # List to store details of overnight shifts
     parsed_dates = set()  # Set to track already parsed dates
 
     duty_days = soup.find_all('td', class_='day')
@@ -61,6 +63,8 @@ def parse_schedule(file_path):
                 shift_destinations['SV'] += 1
             elif duty.startswith('AL'):
                 shift_destinations['AL'] += 1
+            elif duty.startswith('MA'):
+                shift_destinations['MA'] += 1
 
         # Counting rest days and types
         if duty in ['D', 'I', 'DT', 'LD', 'V']:  # Rest days
@@ -72,9 +76,25 @@ def parse_schedule(file_path):
             elif duty == 'V':
                 rest_day_types['V'] += 1
 
-        # Counting overnight shifts
+        # Counting overnight shifts and tracking details
         if '+' in time_end:  # Overnight shifts
             total_overnight_shifts += 1
+            if duty.startswith('BC'):
+                overnight_shifts_by_dest['BC'] += 1
+            elif duty.startswith('VL'):
+                overnight_shifts_by_dest['VL'] += 1
+            elif duty.startswith('AG'):
+                overnight_shifts_by_dest['AG'] += 1
+            elif duty.startswith('SV'):
+                overnight_shifts_by_dest['SV'] += 1
+            elif duty.startswith('AL'):
+                overnight_shifts_by_dest['AL'] += 1
+            overnight_shifts_details.append({
+                'date': date,
+                'duty': duty,
+                'time_start': time_start,
+                'time_end': time_end
+            })
 
         rows.append({
             'date': date,
@@ -102,16 +122,27 @@ def parse_schedule(file_path):
         output_file.write("\nStatistics:\n")
         output_file.write(f"Total Days Parsed: {len(rows)}\n")
         output_file.write(f"Total Shifts: {total_shifts}\n")
-        output_file.write(f"  BC (Barcelona): {shift_destinations['BC']}\n")
-        output_file.write(f"  VL (Valencia): {shift_destinations['VL']}\n")
-        output_file.write(f"  AG (Malaga): {shift_destinations['AG']}\n")
-        output_file.write(f"  SV (Sevilla): {shift_destinations['SV']}\n")
-        output_file.write(f"  AL (Alicante): {shift_destinations['AL']}\n")
-        output_file.write(f"Total Rest Days: {total_rest_days}\n")
+        
+        # Adding the percentage next to each shift destination
+        for destination, count in shift_destinations.items():
+            percentage = (count / total_shifts) * 100 if total_shifts > 0 else 0
+            output_file.write(f"  {destination} ({destination_name(destination)}): {count} ({percentage:.2f}%)\n")
+        
+        # Adding the percentage for total overnight shifts
+        overnight_percentage = (total_overnight_shifts / total_shifts) * 100 if total_shifts > 0 else 0
+        output_file.write(f"Total Overnight Shifts: {total_overnight_shifts} ({overnight_percentage:.2f}%)\n")
+
+        # Detailing overnight shifts for BC, VL, AG, SV, AL
+        output_file.write("\nOvernight Shifts by Destination:\n")
+        for destination in ['BC', 'VL', 'AG', 'SV', 'AL']:
+            if overnight_shifts_by_dest[destination] > 0:
+                percentage = (overnight_shifts_by_dest[destination] / total_overnight_shifts) * 100 if total_overnight_shifts > 0 else 0
+                output_file.write(f"  {destination} ({destination_name(destination)}): {overnight_shifts_by_dest[destination]} ({percentage:.2f}%)\n")
+        
+        output_file.write(f"\nTotal Rest Days: {total_rest_days}\n")
         output_file.write(f"  D: {rest_day_types['D']}\n")
         output_file.write(f"  I: {rest_day_types['I']}\n")
         output_file.write(f"  V: {rest_day_types['V']}\n")
-        output_file.write(f"Total Overnight Shifts: {total_overnight_shifts}\n")
 
         # Write schedule table
         output_file.write("\nSchedule:\n")
@@ -129,16 +160,27 @@ def parse_schedule(file_path):
     print("\nStatistics:")
     print(f"Total Days Parsed: {len(rows)}")
     print(f"Total Shifts: {total_shifts}")
-    print(f"  BC (Barcelona): {shift_destinations['BC']}")
-    print(f"  VL (Valencia): {shift_destinations['VL']}")
-    print(f"  AG (Malaga): {shift_destinations['AG']}")
-    print(f"  SV (Sevilla): {shift_destinations['SV']}")
-    print(f"  AL (Alicante): {shift_destinations['AL']}")
+    
+    # Print shift destination breakdown with percentages
+    for destination, count in shift_destinations.items():
+        percentage = (count / total_shifts) * 100 if total_shifts > 0 else 0
+        print(f"  {destination} ({destination_name(destination)}): {count} ({percentage:.2f}%)")
+    
+    # Print the overnight shift percentage
+    overnight_percentage = (total_overnight_shifts / total_shifts) * 100 if total_shifts > 0 else 0
+    print(f"Total Overnight Shifts: {total_overnight_shifts} ({overnight_percentage:.2f}%)")
+
+    # Print overnight shifts breakdown by destination
+    print("\nOvernight Shifts by Destination:")
+    for destination in ['BC', 'VL', 'AG', 'SV', 'AL']:
+        if overnight_shifts_by_dest[destination] > 0:
+            percentage = (overnight_shifts_by_dest[destination] / total_overnight_shifts) * 100 if total_overnight_shifts > 0 else 0
+            print(f"  {destination} ({destination_name(destination)}): {overnight_shifts_by_dest[destination]} ({percentage:.2f}%)")
+
     print(f"Total Rest Days: {total_rest_days}")
     print(f"  D: {rest_day_types['D']}")
     print(f"  I: {rest_day_types['I']}")
-    print(f"  V: {rest_day_types['V']}")
-    print(f"Total Overnight Shifts: {total_overnight_shifts}\n")
+    print(f"  V: {rest_day_types['V']}\n")
 
     # Print the detailed schedule
     print("\nEmployee Schedule:")
@@ -146,6 +188,18 @@ def parse_schedule(file_path):
     print("-" * 44)
     for row in rows:
         print("{:<12} {:<10} {:<10} {:<10}".format(row['date'], row['duty'], row['time_start'], row['time_end']))
+
+# Helper function to map destination codes to their full names
+def destination_name(code):
+    mapping = {
+        'BC': 'Barcelona',
+        'VL': 'Valencia',
+        'AG': 'Malaga',
+        'SV': 'Sevilla',
+        'AL': 'Alicante',
+        'MA': 'Madrid'
+    }
+    return mapping.get(code, 'Unknown')
 
 # Parse 'untitled.html'
 file_path = 'untitled.html'
