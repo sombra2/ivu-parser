@@ -18,11 +18,17 @@ def parse_schedule(file_path):
     total_rest_days = 0
     rest_day_types = {'D': 0, 'I': 0, 'V': 0}
     total_overnight_shifts = 0
+    parsed_dates = set()  # Set to track already parsed dates
 
     duty_days = soup.find_all('td', class_='day')
     for day in duty_days:
         date_elem = day.find('div', class_='date')
         date = date_elem.text.strip() if date_elem else ''
+
+        # Skip the date if it's already been processed
+        if date in parsed_dates:
+            continue
+        parsed_dates.add(date)  # Add the date to the set
 
         # Look for the duty denomination
         allocation_name_elem = day.find('div', class_='allocation-name')
