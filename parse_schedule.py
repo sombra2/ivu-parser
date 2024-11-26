@@ -1,6 +1,24 @@
 from bs4 import BeautifulSoup
 import re  # For replacing invalid filename characters
-from datetime import datetime  # For timestamp
+from datetime import datetime, timedelta  # For timestamp and time difference
+
+# Function to calculate hours between start and end time
+def calculate_hours(start_time, end_time):
+    # Convert times into datetime objects
+    time_format = "%H:%M"
+    start = datetime.strptime(start_time, time_format)
+    
+    # If the shift ends with a '+', add 24 hours to the end time
+    if '+' in end_time:
+        end_time = end_time.rstrip('+')  # Remove the '+' before processing
+        end = datetime.strptime(end_time, time_format) + timedelta(days=1)  # Add 1 day to handle past midnight
+    else:
+        end = datetime.strptime(end_time, time_format)
+    
+    # Calculate the difference in hours and minutes
+    duration = end - start
+    hours = duration.total_seconds() / 3600  # Convert to hours
+    return round(hours, 2)  # Round to 2 decimal places
 
 # Function to parse the HTML file and extract required data
 def parse_schedule(file_path):
@@ -20,6 +38,9 @@ def parse_schedule(file_path):
     total_overnight_shifts = 0
     overnight_shifts_by_dest = {'BC': 0, 'VL': 0, 'AG': 0, 'SV': 0, 'AL': 0}
     overnight_shifts_details = []  # List to store details of overnight shifts
+    total_hours = 0  # To track the total hours worked across all shifts
+    total_non_overnight_hours = 0  # To track total hours for non-overnight shifts (less than 12 hours)
+    non_overnight_shifts = 0  # To count shifts that are less than 12 hours
     parsed_dates = set()  # Set to track already parsed dates
 
     duty_days = soup.find_all('td', class_='day')
@@ -102,11 +123,22 @@ def parse_schedule(file_path):
                     'time_end': time_end  # Keep the '+' sign in the output
                 })
 
+        # Calculate and add hours worked for the shift
+        if time_start != '----' and time_end != '----':  # Only calculate if valid times exist
+            hours = calculate_hours(time_start, time_end)
+            total_hours += hours  # Add the calculated hours to the total
+            
+            # Only count non-overnight shifts with less than 12 hours
+            if hours < 12 and '+' not in time_end:  # Exclude overnight shifts and those with more than 12 hours
+                total_non_overnight_hours += hours
+                non_overnight_shifts += 1
+
         rows.append({
             'date': date,
             'duty': duty,
             'time_start': time_start,
             'time_end': time_end,
+            'hours': round(hours, 2) if time_start != '----' and time_end != '----' else 0  # Add the hours worked for this shift, defaulting to 0 if not available
         })
 
     # Determine the filename based on the employee and dates
@@ -145,17 +177,24 @@ def parse_schedule(file_path):
                 percentage = (overnight_shifts_by_dest[destination] / total_overnight_shifts) * 100 if total_overnight_shifts > 0 else 0
                 output_file.write(f"  {destination} ({destination_name(destination)}): {overnight_shifts_by_dest[destination]} ({percentage:.2f}%)\n")
         
+        # Adding average hours per shift excluding sleepovers
+        if non_overnight_shifts > 0:
+            average_hours = total_non_overnight_hours / non_overnight_shifts
+            output_file.write(f"\nAverage Hours per Shift (Excl. Sleepovers): {average_hours:.2f} hours\n")
+        else:
+            output_file.write(f"\nAverage Hours per Shift (Excl. Sleepovers): N/A\n")
+
         output_file.write(f"\nTotal Rest Days: {total_rest_days}\n")
         output_file.write(f"  D: {rest_day_types['D']}\n")
         output_file.write(f"  I: {rest_day_types['I']}\n")
         output_file.write(f"  V: {rest_day_types['V']}\n")
 
-        # Write schedule table
+        # Write schedule table with the new "Hours" column
         output_file.write("\nSchedule:\n")
-        output_file.write("{:<12} {:<10} {:<10} {:<10}\n".format("Date", "Duty", "Start Time", "End Time"))
-        output_file.write("-" * 44 + "\n")
+        output_file.write("{:<12} {:<10} {:<10} {:<10} {:<10}\n".format("Date", "Duty", "Start Time", "End Time", "Hours"))
+        output_file.write("-" * 54 + "\n")
         for row in rows:
-            output_file.write("{:<12} {:<10} {:<10} {:<10}\n".format(row['date'], row['duty'], row['time_start'], row['time_end']))
+            output_file.write("{:<12} {:<10} {:<10} {:<10} {:<10}\n".format(row['date'], row['duty'], row['time_start'], row['time_end'], row['hours']))
         
         # Add the timestamp at the bottom
         timestamp = datetime.now().strftime("%d/%m/%y %H:%M:%S")
@@ -183,6 +222,13 @@ def parse_schedule(file_path):
             percentage = (overnight_shifts_by_dest[destination] / total_overnight_shifts) * 100 if total_overnight_shifts > 0 else 0
             print(f"  {destination} ({destination_name(destination)}): {overnight_shifts_by_dest[destination]} ({percentage:.2f}%)")
 
+    # Print the average hours for non-overnight shifts
+    if non_overnight_shifts > 0:
+        average_hours = total_non_overnight_hours / non_overnight_shifts
+        print(f"\nAverage Hours per Shift (Excl. Sleepovers): {average_hours:.2f} hours")
+    else:
+        print(f"\nAverage Hours per Shift (Excl. Sleepovers): N/A")
+
     print(f"Total Rest Days: {total_rest_days}")
     print(f"  D: {rest_day_types['D']}")
     print(f"  I: {rest_day_types['I']}")
@@ -190,10 +236,10 @@ def parse_schedule(file_path):
 
     # Print the detailed schedule
     print("\nEmployee Schedule:")
-    print("{:<12} {:<10} {:<10} {:<10}".format("Date", "Duty", "Start Time", "End Time"))
-    print("-" * 44)
+    print("{:<12} {:<10} {:<10} {:<10} {:<10}".format("Date", "Duty", "Start Time", "End Time", "Hours"))
+    print("-" * 54)
     for row in rows:
-        print("{:<12} {:<10} {:<10} {:<10}".format(row['date'], row['duty'], row['time_start'], row['time_end']))
+        print("{:<12} {:<10} {:<10} {:<10} {:<10}".format(row['date'], row['duty'], row['time_start'], row['time_end'], row['hours']))
 
 # Helper function to map destination codes to their full names
 def destination_name(code):
