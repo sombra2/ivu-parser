@@ -50,6 +50,9 @@ def parse_schedule(file_path):
         time_start = start_time_elem.text.strip() if start_time_elem else '----'
         time_end = end_time_elem.text.strip() if end_time_elem else '----'
 
+        # Temporarily remove '+' from end time to make time comparisons easier
+        time_end_no_plus = time_end.rstrip('+')  # Remove '+' sign if it exists
+
         # Counting total shifts and destinations
         if duty not in ['D', 'I', 'DT', 'LD', 'V', '----']:  # Not a rest day or empty
             total_shifts += 1
@@ -76,25 +79,28 @@ def parse_schedule(file_path):
             elif duty == 'V':
                 rest_day_types['V'] += 1
 
-        # Counting overnight shifts and tracking details
+        # Check if this shift is an overnight shift
         if '+' in time_end:  # Overnight shifts
-            total_overnight_shifts += 1
-            if duty.startswith('BC'):
-                overnight_shifts_by_dest['BC'] += 1
-            elif duty.startswith('VL'):
-                overnight_shifts_by_dest['VL'] += 1
-            elif duty.startswith('AG'):
-                overnight_shifts_by_dest['AG'] += 1
-            elif duty.startswith('SV'):
-                overnight_shifts_by_dest['SV'] += 1
-            elif duty.startswith('AL'):
-                overnight_shifts_by_dest['AL'] += 1
-            overnight_shifts_details.append({
-                'date': date,
-                'duty': duty,
-                'time_start': time_start,
-                'time_end': time_end
-            })
+            # Check if the shift ends after 06:00 AM (but still ends with a "+")
+            hours, minutes = map(int, time_end_no_plus.split(':')[:2])  # Split time and convert to int
+            if hours >= 6:  # If the shift ends after 06:00 AM
+                total_overnight_shifts += 1
+                if duty.startswith('BC'):
+                    overnight_shifts_by_dest['BC'] += 1
+                elif duty.startswith('VL'):
+                    overnight_shifts_by_dest['VL'] += 1
+                elif duty.startswith('AG'):
+                    overnight_shifts_by_dest['AG'] += 1
+                elif duty.startswith('SV'):
+                    overnight_shifts_by_dest['SV'] += 1
+                elif duty.startswith('AL'):
+                    overnight_shifts_by_dest['AL'] += 1
+                overnight_shifts_details.append({
+                    'date': date,
+                    'duty': duty,
+                    'time_start': time_start,
+                    'time_end': time_end  # Keep the '+' sign in the output
+                })
 
         rows.append({
             'date': date,
