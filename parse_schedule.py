@@ -149,7 +149,12 @@ def parse_schedule(file_path):
     sanitized_first_date = re.sub(r'[^\w-]', '_', first_date)
     sanitized_last_date = re.sub(r'[^\w-]', '_', last_date)
     sanitized_user_name = re.sub(r'[^\w\s]', '', user_name).replace(' ', '_')
-    filename = f"{sanitized_user_name}_{personnel_number}_duties_from_{sanitized_first_date}_to_{sanitized_last_date}.txt"
+    
+    # Generate a unique timestamp in yymmddhhmmss format
+    unique_timestamp = datetime.now().strftime("%y%m%d%H%M%S")
+    
+    # Create the final filename with the unique timestamp
+    filename = f"{unique_timestamp}_{sanitized_user_name}_{personnel_number}_duties_from_{sanitized_first_date}_to_{sanitized_last_date}.txt"
 
     # Write results to a text file
     with open(filename, 'w', encoding='utf-8') as output_file:
