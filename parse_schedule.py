@@ -14,7 +14,11 @@ def calculate_hours(start_time, end_time):
         end = datetime.strptime(end_time, time_format) + timedelta(days=1)  # Add 1 day to handle past midnight
     else:
         end = datetime.strptime(end_time, time_format)
-    
+        
+        # If the end time is earlier than the start time, assume it is past midnight
+        if end < start:
+            end += timedelta(days=1)
+
     # Calculate the difference in hours and minutes
     duration = end - start
     hours = duration.total_seconds() / 3600  # Convert to hours
@@ -205,46 +209,8 @@ def parse_schedule(file_path):
         timestamp = datetime.now().strftime("%d/%m/%y %H:%M:%S")
         output_file.write(f"\nThis report has been generated at: {timestamp}\n")
 
-    # Print to console
-    print(f"Output written to {filename}")
-    print("\nStatistics:")
-    print(f"Total Days Parsed: {len(rows)}")
-    print(f"Total Shifts: {total_shifts}")
-    
-    # Print shift destination breakdown with percentages
-    for destination, count in shift_destinations.items():
-        percentage = (count / total_shifts) * 100 if total_shifts > 0 else 0
-        print(f"  {destination} ({destination_name(destination)}): {count} ({percentage:.2f}%)")
-    
-    # Print the overnight shift percentage
-    overnight_percentage = (total_overnight_shifts / total_shifts) * 100 if total_shifts > 0 else 0
-    print(f"Total Overnight Shifts: {total_overnight_shifts} ({overnight_percentage:.2f}%)")
-
-    # Print overnight shifts breakdown by destination
-    print("\nOvernight Shifts by Destination:")
-    for destination in ['BC', 'VL', 'AG', 'SV', 'AL']:
-        if overnight_shifts_by_dest[destination] > 0:
-            percentage = (overnight_shifts_by_dest[destination] / total_overnight_shifts) * 100 if total_overnight_shifts > 0 else 0
-            print(f"  {destination} ({destination_name(destination)}): {overnight_shifts_by_dest[destination]} ({percentage:.2f}%)")
-
-    # Print the average hours for non-overnight shifts
-    if non_overnight_shifts > 0:
-        average_hours = total_non_overnight_hours / non_overnight_shifts
-        print(f"\nAverage Hours per Shift (Excl. Sleepovers): {average_hours:.2f} hours")
-    else:
-        print(f"\nAverage Hours per Shift (Excl. Sleepovers): N/A")
-
-    print(f"Total Rest Days: {total_rest_days}")
-    print(f"  D: {rest_day_types['D']}")
-    print(f"  I: {rest_day_types['I']}")
-    print(f"  V: {rest_day_types['V']}\n")
-
-    # Print the detailed schedule
-    print("\nEmployee Schedule:")
-    print("{:<12} {:<10} {:<10} {:<10} {:<10}".format("Date", "Duty", "Start Time", "End Time", "Hours"))
-    print("-" * 54)
-    for row in rows:
-        print("{:<12} {:<10} {:<10} {:<10} {:<10}".format(row['date'], row['duty'], row['time_start'], row['time_end'], row['hours']))
+    # Message confirming that the file has been generated
+    print(f"{filename} has been generated successfully!")
 
 # Helper function to map destination codes to their full names
 def destination_name(code):
